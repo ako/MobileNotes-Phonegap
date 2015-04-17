@@ -35,7 +35,10 @@
 	<gap:plugin name="org.apache.cordova.console" />
 	<gap:plugin name="com.phonegap.plugins.barcodescanner" />
 	<gap:plugin name="com.phonegap.plugin.statusbar" />
+	<!--
 	<gap:plugin name="com.conetix.ibeacon"/>
+	-->
+	<gap:plugin name="com.unarin.cordova.beacon" />
 
 	<gap:platform name="ios" />
 			<icon src="res/ios/icon-small.png" gap:platform="ios" width="29" height="29" />
