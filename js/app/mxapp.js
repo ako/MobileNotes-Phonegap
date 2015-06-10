@@ -1,4 +1,6 @@
-(function() {
+(function () {
+    "use strict";
+
     var defaultConfig = {
         files: {
             js: [ "mxclientsystem/mxui/mxui.js" ],
@@ -6,24 +8,29 @@
                 "lib/bootstrap/css/bootstrap.min.css",
                 "mxclientsystem/mxui/ui/mxui.css",
                 "css/theme.css"
-            ],
+            ]
         },
         cachebust: +new Date()
     };
 
     function request(url, params) {
-        var xhr = new XMLHttpRequest();
+        var xhr = new XMLHttpRequest(),
+            header;
+
         xhr.open(params.method, url);
 
         if (params.onLoad) {
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState != 4) return;
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) {
+                    return;
+                }
+
                 params.onLoad(xhr.status, xhr.statusText, xhr.responseText);
             };
         }
 
-        if (params.headers) {
-            for (var header in params.headers) {
+        for (header in params.headers) {
+            if (params.headers.hasOwnProperty(header)) {
                 xhr.setRequestHeader(header, params.headers[header]);
             }
         }
@@ -38,65 +45,85 @@
 
     function showError(message) {
         document.getElementById("mxalert_message").textContent = message;
-        document.getElementById("mxalert_button").addEventListener("touchstart", function() {
+        document.getElementById("mxalert_button").addEventListener("touchstart", function () {
             window.location.reload();
         });
 
         document.getElementById("mxalert").style.display = "block";
     }
 
+    function isAbsolute(url) {
+        // http://stackoverflow.com/a/19709846
+        return /^(\w+:)?\/\//.test(url);
+    }
+
     window.mxapp = {
         _appUrl: "",
         _appConfig: null,
 
-        _startup: function() {
+        _toAbsoluteUrl: function (url) {
+            if (isAbsolute(url)) {
+                return url;
+            } else {
+                return this._appUrl + url;
+            }
+        },
+
+        _appendCacheBust: function (url) {
+            return url + "?" + this._appConfig.cachebust;
+        },
+
+        _startup: function () {
             window.dojoConfig = {
                 appbase: this._appUrl,
-                baseUrl: this._appUrl + "mxclientsystem/dojo/"
+                baseUrl: this._appUrl + "mxclientsystem/dojo/",
+                cacheBust: this._appConfig.cachebust
             };
 
             var head = document.getElementsByTagName("head")[0];
 
-            this._appConfig.files.css.forEach(function(href) {
+            this._appConfig.files.css.forEach(function (href) {
                 var link = document.createElement("link");
                 link.rel = "stylesheet";
-                link.href = this._appUrl + href + "?v=" + this._appConfig.cachebust;
+                link.href = this._appendCacheBust(this._toAbsoluteUrl(href));
 
                 head.appendChild(link);
             }, this);
 
-            this._appConfig.files.js.forEach(function(href) {
+            this._appConfig.files.js.forEach(function (href) {
                 var script = document.createElement("script");
-                script.src = this._appUrl + href + "?v=" + this._appConfig.cachebust;
+                script.src = this._appendCacheBust(this._toAbsoluteUrl(href));
 
                 head.appendChild(script);
             }, this);
 
             //navigator.splashscreen.hide();
+
+            console.log('App initialized successfully.');
         },
 
-        _getConfig: function(callback) {
+        _getConfig: function (callback) {
             var attempts = 20,
-                configUrl = this._appUrl + "components.json?v=" + (+new Date());
+                configUrl = this._appUrl + "components.json?" + (+new Date());
 
             function fetchConfig(callback) {
                 request(configUrl, {
                     method: "get",
                     timeout: 5000,
                     onLoad: callback,
-                    onTimeout: function() {
+                    onTimeout: function () {
                         showError("The connection timed out. Please try again later.");
                     }
                 });
             }
 
-            fetchConfig(function(status, statusText, result) {
-                if (status == 200) {
+            fetchConfig(function (status, statusText, result) {
+                if (status === 200) {
                     callback(JSON.parse(result));
-                } else if (status == 404) {
+                } else if (status === 404) {
                     // If config is not found, assume the default config
                     callback(defaultConfig);
-                } else if (status == 503) {
+                } else if (status === 503) {
                     if (--attempts > 0) {
                         // If the app is suspended, wait for it to wake up
                         setTimeout(fetchConfig, 5000);
@@ -109,18 +136,20 @@
             });
         },
 
-        initialize: function(url) {
+        initialize: function (url) {
+            console.log('Initializing app ...');
+
             // Make sure the url always ends with a /
             this._appUrl = url.replace(/\/?$/, "/");
 
-            document.addEventListener("deviceready", function() {
+            document.addEventListener("deviceready", function () {
                 //navigator.splashscreen.show();
 
-                this._getConfig(function(config) {
+                this._getConfig(function (config) {
                     this._appConfig = config;
                     this._startup();
                 }.bind(this));
             }.bind(this));
         }
     };
-})();
+}());
